@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -72,36 +72,56 @@ function capability(report, hostId, id) {
 
 describe('runProbe', () => {
   test('a missing host is skipped and the other host can still be yes', async () => {
+    const previous = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+      NPM_TOKEN: process.env.NPM_TOKEN,
+    };
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    process.env.OPENAI_API_KEY = 'sk-openai-test';
+    process.env.GITHUB_TOKEN = 'gh-test';
+    process.env.NPM_TOKEN = 'npm-test';
     const runner = createMock({ missing: ['codex'], yes: true });
-    const report = await runProbe({
-      hosts: ['claude', 'codex'],
-      timeoutMs: 5000,
-      toolVersion: version,
-      runner,
-      now: new Date('2026-11-07T00:00:00.000Z'),
-    });
-    assert.equal(report.plugin.source, 'canary');
-    assert.equal(capability(report, 'claude', 'plugin-root-interpolation').capability.status, 'yes');
-    assert.equal(capability(report, 'claude', 'async-hook').capability.status, 'yes');
-    assert.equal(capability(report, 'claude', 'skill-discovery').capability.status, 'yes');
-    assert.equal(capability(report, 'claude', 'plugin-root-interpolation').host.status, 'probed');
-    assert.equal(capability(report, 'claude', 'plugin-root-interpolation').host.version, '2.1.50');
-    const skipped = capability(report, 'codex', 'async-hook');
-    assert.equal(skipped.host.status, 'skipped');
-    assert.equal(skipped.capability.status, 'skipped');
-    assert.match(skipped.capability.note, /codex was not found on PATH/);
-    assert.equal(skipped.host.version, null);
+    try {
+      const report = await runProbe({
+        hosts: ['claude', 'codex'],
+        timeoutMs: 5000,
+        toolVersion: version,
+        runner,
+        now: new Date('2026-11-07T00:00:00.000Z'),
+      });
+      assert.equal(report.plugin.source, 'canary');
+      assert.equal(capability(report, 'claude', 'plugin-root-interpolation').capability.status, 'yes');
+      assert.equal(capability(report, 'claude', 'async-hook').capability.status, 'yes');
+      assert.equal(capability(report, 'claude', 'skill-discovery').capability.status, 'yes');
+      assert.equal(capability(report, 'claude', 'plugin-root-interpolation').host.status, 'probed');
+      assert.equal(capability(report, 'claude', 'plugin-root-interpolation').host.version, '2.1.50');
+      const skipped = capability(report, 'codex', 'async-hook');
+      assert.equal(skipped.host.status, 'skipped');
+      assert.equal(skipped.capability.status, 'skipped');
+      assert.match(skipped.capability.note, /codex was not found on PATH/);
+      assert.equal(skipped.host.version, null);
 
-    const claudeProbe = runner.calls.find((call) => call.args.includes('-p'));
-    assert.ok(claudeProbe);
-    assert.ok(claudeProbe.args.includes('--plugin-dir'));
-    assert.ok(claudeProbe.args.includes('--max-turns'));
-    assert.equal(claudeProbe.args.includes('--headless'), false);
-    assert.equal(claudeProbe.env.HOME.includes(`${join('home')}`) || claudeProbe.env.HOME !== process.env.HOME, true);
-    assert.notEqual(claudeProbe.env.HOME, process.env.HOME);
-    assert.ok(claudeProbe.env.CLAUDE_CONFIG_DIR);
-    assert.equal(claudeProbe.env.ANTHROPIC_API_KEY, undefined);
-    assert.equal(claudeProbe.env.OPENAI_API_KEY, undefined);
+      const claudeProbe = runner.calls.find((call) => call.args.includes('-p'));
+      assert.ok(claudeProbe);
+      assert.ok(claudeProbe.args.includes('--plugin-dir'));
+      assert.ok(claudeProbe.args.includes('--max-turns'));
+      assert.equal(claudeProbe.args.includes('--headless'), false);
+      assert.notEqual(claudeProbe.env.HOME, process.env.HOME);
+      assert.equal(claudeProbe.env.HOME, claudeProbe.env.USERPROFILE);
+      assert.ok(claudeProbe.env.CLAUDE_CONFIG_DIR);
+      assert.equal(claudeProbe.env.PATH, process.env.PATH);
+      assert.equal(claudeProbe.env.ANTHROPIC_API_KEY, undefined);
+      assert.equal(claudeProbe.env.OPENAI_API_KEY, undefined);
+      assert.equal(claudeProbe.env.GITHUB_TOKEN, undefined);
+      assert.equal(claudeProbe.env.NPM_TOKEN, undefined);
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 
   test('literal plugin root and a dropped async hook are reported from traces', async () => {
@@ -224,6 +244,46 @@ Review the diff.
       assert.ok(report.warnings.some((warning) => warning.message.includes('async')));
       assert.ok(report.warnings.some((warning) => warning.file.endsWith('SKILL.md') && warning.message.includes('model')));
       assert.equal(capability(report, 'claude', 'plugin-root-interpolation').capability.status, 'no');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('a symlink outside the plugin is not copied into the temporary home', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'plugin-probe-link-'));
+    const outside = join(root, 'secret.txt');
+    const plugin = join(root, 'boxed');
+    writeFileSync(outside, 'do-not-copy');
+    mkdirSync(join(plugin, '.claude-plugin'), { recursive: true });
+    writeFileSync(join(plugin, '.claude-plugin', 'plugin.json'), '{"name":"boxed"}\n');
+    writeFileSync(join(plugin, 'inside.txt'), 'keep');
+    symlinkSync(outside, join(plugin, 'leak.txt'));
+    symlinkSync('inside.txt', join(plugin, 'alias.txt'));
+    try {
+      const runner = {
+        lookup() {
+          return '/usr/local/bin/claude';
+        },
+        async run(request) {
+          if (request.args.includes('--version')) return ok('2.1.50\n');
+          const flag = request.args.indexOf('--plugin-dir');
+          const dir = request.args[flag + 1];
+          assert.equal(existsSync(join(dir, 'leak.txt')), false);
+          assert.equal(readFileSync(join(dir, 'inside.txt'), 'utf8'), 'keep');
+          assert.equal(readFileSync(join(dir, 'alias.txt'), 'utf8'), 'keep');
+          return ok('');
+        },
+      };
+      const report = await runProbe({
+        hosts: ['claude'],
+        pluginPath: plugin,
+        timeoutMs: 5000,
+        toolVersion: version,
+        runner,
+      });
+      assert.equal(report.plugin.name, 'boxed');
+      assert.equal(existsSync(outside), true);
+      assert.equal(readFileSync(outside, 'utf8'), 'do-not-copy');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

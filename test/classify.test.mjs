@@ -56,6 +56,25 @@ describe('classifyHost', () => {
     assert.equal(byId(classification, 'skill-discovery').agentcompat, 'yes');
   });
 
+  test('an absolute interpreter path or scriptPluginRoot is not interpolation', () => {
+    const classification = classifyHost(
+      observe({
+        mcpTraces: [
+          {
+            argv: ['/usr/bin/node', 'scripts/mcp-trace.mjs', '--plugin-root', 'relative'],
+            claudePluginRoot: null,
+            pluginRootEnv: null,
+            scriptPluginRoot: '/tmp/plugin-probe-canary',
+          },
+        ],
+      }),
+      null,
+    );
+    const root = byId(classification, 'plugin-root-interpolation');
+    assert.equal(root.status, 'no');
+    assert.match(root.note, /absolute plugin root/);
+  });
+
   test('literal placeholder in the MCP trace is no', () => {
     const classification = classifyHost(
       observe({

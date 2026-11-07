@@ -1,5 +1,5 @@
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { cpSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { basename, join, sep } from 'node:path';
 
 export interface IsolatedLayout {
   root: string;
@@ -40,13 +40,11 @@ export function createLayout(root: string, sourcePlugin: string, pluginName: str
   mkdirSync(join(marketRoot, '.agents', 'plugins'), { recursive: true });
   mkdirSync(join(marketRoot, '.claude-plugin'), { recursive: true });
 
+  const sourceRoot = realpathSync(sourcePlugin);
   cpSync(sourcePlugin, pluginDir, {
     recursive: true,
     dereference: true,
-    filter: (source) => {
-      const name = basename(source);
-      return name !== 'node_modules' && name !== '.git' && name !== '.probe-traces';
-    },
+    filter: (source) => copySource(source, sourceRoot),
   });
 
   const marketplace = {
@@ -104,6 +102,18 @@ export function ensureCodexProbeConfig(codexHome: string, workDir: string, plugi
 
 export function tomlBasicString(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function copySource(source: string, sourceRoot: string): boolean {
+  const name = basename(source);
+  if (name === 'node_modules' || name === '.git' || name === '.probe-traces') return false;
+  try {
+    if (!lstatSync(source).isSymbolicLink()) return true;
+    const real = realpathSync(source);
+    return real === sourceRoot || real.startsWith(`${sourceRoot}${sep}`);
+  } catch {
+    return false;
+  }
 }
 
 export function kebabName(raw: string): string {

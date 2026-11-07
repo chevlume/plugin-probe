@@ -7,20 +7,12 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export const scriptPluginRoot = path.resolve(here, '..');
 
 export function writeTrace(filename, payload) {
-  const dirs = new Set();
-  if (process.env.PLUGIN_PROBE_TRACE_DIR) {
-    dirs.add(process.env.PLUGIN_PROBE_TRACE_DIR);
-  }
-  dirs.add(path.join(scriptPluginRoot, '.probe-traces'));
-
-  const body = JSON.stringify(payload);
-  for (const dir of dirs) {
-    try {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, filename), body);
-    } catch {
-      // The other directory may still be writable.
-    }
+  const dir = process.env.PLUGIN_PROBE_TRACE_DIR || path.join(scriptPluginRoot, '.probe-traces');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, filename), JSON.stringify(payload));
+  } catch {
+    // The probe still reports a missing trace if this directory is not writable.
   }
 }
 

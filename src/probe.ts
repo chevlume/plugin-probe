@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { bundledCanaryDir } from './canary.js';
 import { classifyHost, firstUsefulLine } from './classify.js';
-import { STRIPPED_ENV } from './constants.js';
+import { FORWARDED_ENV, SCHEMA_VERSION, TOOL_NAME } from './constants.js';
 import { hostSpec, installAlreadySatisfied, knownHostIds, parseVersion, type HostContext } from './hosts.js';
 import { createLayout, ensureCodexProbeConfig, type IsolatedLayout } from './layout.js';
 import { createRealRunner } from './runner.js';
@@ -35,8 +35,8 @@ export async function runProbe(options: ProbeOptions): Promise<ProbeReport> {
     const generatedAt = (options.now ?? new Date()).toISOString();
     return {
       ok: true,
-      schemaVersion: 1,
-      tool: 'plugin-probe',
+      schemaVersion: SCHEMA_VERSION,
+      tool: TOOL_NAME,
       toolVersion: options.toolVersion,
       generatedAt,
       plugin: {
@@ -223,8 +223,11 @@ function resolvePlugin(pluginPath: string | undefined): { source: 'canary' | 'pa
 }
 
 function childEnv(layout: IsolatedLayout): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env };
-  for (const key of STRIPPED_ENV) delete env[key];
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of FORWARDED_ENV) {
+    const value = process.env[key];
+    if (value !== undefined) env[key] = value;
+  }
   env.HOME = layout.home;
   env.USERPROFILE = layout.home;
   env.CLAUDE_CONFIG_DIR = layout.claudeConfig;

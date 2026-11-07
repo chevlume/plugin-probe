@@ -122,7 +122,9 @@ function classifyRoot(
     'no',
     'no',
     'tested',
-    'MCP server did not write a trace.',
+    observation.mcpTraces.length > 0
+      ? 'MCP trace did not record an absolute plugin root.'
+      : 'MCP server did not write a trace.',
   );
 }
 
@@ -209,8 +211,10 @@ function traceShowsLiteral(trace: unknown): boolean {
 function traceShowsResolved(trace: unknown): boolean {
   if (!trace || typeof trace !== 'object') return false;
   const record = trace as Record<string, unknown>;
-  const values: unknown[] = [record.claudePluginRoot, record.pluginRootEnv, record.scriptPluginRoot];
-  if (Array.isArray(record.argv)) values.push(...record.argv);
+  const values: unknown[] = [record.claudePluginRoot, record.pluginRootEnv];
+  // argv[0] is the interpreter. scriptPluginRoot is computed by the script from its
+  // own file location, so neither one shows that the host expanded the placeholder.
+  if (Array.isArray(record.argv)) values.push(...record.argv.slice(1));
   return values.some(
     (value) => typeof value === 'string' && isAbsolute(value) && !value.includes('${'),
   );

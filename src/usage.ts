@@ -35,8 +35,11 @@ The probe sets HOME, CLAUDE_CONFIG_DIR, and CODEX_HOME to a temporary directory.
 It does not read or write ~/.claude or ~/.codex.
 
 Examples:
-  npx plugin-probe probe --hosts claude,codex
+  plugin-probe probe --hosts claude,codex
   plugin-probe probe --json ./my-plugin
   plugin-probe probe --hosts codex --timeout 45000 ./my-plugin
+
+From a git checkout, before this package is on npm, run those commands with:
+  npx --yes . probe --hosts claude,codex
 `;
 }
