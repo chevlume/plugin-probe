@@ -1,0 +1,48 @@
+{
+  "name": "plugin-probe",
+  "version": "0.1.0",
+  "description": "Run Claude-format coding-agent plugins against host CLIs and report what actually worked.",
+  "type": "module",
+  "bin": {
+    "plugin-probe": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "canary",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "prepack": "npm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "license": "Apache-2.0",
+  "author": "Chevlume",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chevlume/plugin-probe.git"
+  },
+  "homepage": "https://github.com/chevlume/plugin-probe#readme",
+  "bugs": {
+    "url": "https://github.com/chevlume/plugin-probe/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "plugins",
+    "mcp",
+    "coding-agents",
+    "portability"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "typescript": "^5.8.3"
+  }
+}
