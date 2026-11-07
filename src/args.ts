@@ -72,6 +72,10 @@ export function parseArgs(argv: string[]): CliOptions {
     positionals.push(arg);
   }
 
+  if (options.help || options.version) {
+    return options;
+  }
+
   if (positionals.length > 0) {
     const [command, ...rest] = positionals;
     if (command !== 'probe') {

@@ -8,4 +8,4 @@ It does not read secrets and it does not open network connections.
 - `hooks/hooks.json` registers two `SessionStart` command hooks. One is synchronous. One sets `"async": true`. Each writes a trace file if the host runs it.
 - `skills/plugin-probe-canary/SKILL.md` carries frontmatter (`model`, `allowed-tools`, `effort`) that some hosts parse and do not apply. The description contains the token `plugin-probe-skill-token-7f3a`.
 
-Trace files are `plugin-probe-mcp.json`, `plugin-probe-hook-sync.json`, and `plugin-probe-hook-async.json`. They are written to `PLUGIN_PROBE_TRACE_DIR` when that variable is set, and also under `.probe-traces/` next to the plugin.
+Trace files are `plugin-probe-mcp.json`, `plugin-probe-hook-sync.json`, and `plugin-probe-hook-async.json`. They are written to `PLUGIN_PROBE_TRACE_DIR` when that variable is set. Otherwise they are written under `.probe-traces/` next to the plugin.

@@ -24,10 +24,9 @@ main(process.argv.slice(2))
   });
 
 async function main(argv: string[]): Promise<number> {
-  let json = false;
+  const json = argv.includes('--json');
   try {
     const options = parseArgs(argv);
-    json = options.json;
     if (options.help) {
       process.stdout.write(helpText());
       return 0;

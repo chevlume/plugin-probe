@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { SKILL_TOKEN, TRACE_FILES } from '../dist/constants.js';
+import { runProcess } from '../dist/runner.js';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cli = join(repo, 'dist', 'cli.js');
@@ -24,6 +25,8 @@ test('help and version', () => {
   assert.match(help.stdout, /plugin-probe probe/);
   assert.match(help.stdout, /--json/);
   assert.match(help.stdout, /--hosts/);
+  assert.match(help.stdout, /npx --yes \. probe/);
+  assert.doesNotMatch(help.stdout, /npx plugin-probe/);
 
   const version = run(['--version']);
   const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
@@ -78,10 +81,76 @@ test('an unknown host is a usage error', () => {
   const result = run(['probe', '--hosts', 'not-a-host']);
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Unknown host/);
+  assert.equal(result.stdout, '');
+});
+
+test('--json is honored when argument parsing fails', () => {
+  const result = run(['probe', '--hosts', 'not-a-host', '--json']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Unknown host/);
+  const body = JSON.parse(result.stdout);
+  assert.equal(body.ok, false);
+  assert.match(body.error, /Unknown host/);
+});
+
+test('a file path and a bad timeout are usage errors', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'plugin-probe-file-'));
+  const file = join(dir, 'not-a-directory.txt');
+  writeFileSync(file, 'nope\n');
+  try {
+    const asFile = run(['probe', file]);
+    assert.equal(asFile.status, 2);
+    assert.match(asFile.stderr, /is a file/);
+
+    const timeout = run(['probe', '--timeout', '50']);
+    assert.equal(timeout.status, 2);
+    assert.match(timeout.stderr, /between 1000 and 300000/);
+
+    const unknown = run(['explode']);
+    assert.equal(unknown.status, 2);
+    assert.match(unknown.stderr, /Unknown command explode/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a command that ignores SIGTERM still ends after the timeout', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'plugin-probe-timeout-'));
+  const pidFile = join(dir, 'pid');
+  try {
+    const result = await runProcess({
+      bin: process.execPath,
+      args: [
+        '-e',
+        'const fs=require("node:fs"); fs.writeFileSync(process.argv[1], String(process.pid)); process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);',
+        pidFile,
+      ],
+      cwd: repo,
+      env: process.env,
+      timeoutMs: 300,
+    });
+    assert.equal(result.timedOut, true);
+    assert.equal(result.exitCode, null);
+    const pid = Number(readFileSync(pidFile, 'utf8'));
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.fail(`timed out process ${pid} is still running`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('canary scripts write traces and do not touch the network', () => {
   const dir = mkdtempSync(join(tmpdir(), 'plugin-probe-canary-'));
+  const besidePlugin = join(repo, 'canary', 'plugin-probe-canary', '.probe-traces');
+  rmSync(besidePlugin, { recursive: true, force: true });
   try {
     const mcp = spawnSync(
       process.execPath,
@@ -120,6 +189,7 @@ test('canary scripts write traces and do not touch the network', () => {
     assert.match(hooks, /"async": true/);
     const mcpJson = readFileSync(join(repo, 'canary', 'plugin-probe-canary', '.mcp.json'), 'utf8');
     assert.match(mcpJson, /\$\{CLAUDE_PLUGIN_ROOT\}/);
+    assert.equal(existsSync(besidePlugin), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

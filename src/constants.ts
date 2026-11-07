@@ -1,4 +1,4 @@
-export const TOOL_NAME = 'plugin-probe';
+export const TOOL_NAME = 'plugin-probe' as const;
 
 export const SCHEMA_VERSION = 1 as const;
 
@@ -19,13 +19,43 @@ export const TRACE_FILES = {
 export const PROBE_PROMPT =
   'Reply with the single word ok. Do not call tools, do not read files, and do not use the network.';
 
-/** Env vars that would let a host bill an API account. They are not forwarded. */
-export const STRIPPED_ENV = [
-  'ANTHROPIC_API_KEY',
-  'ANTHROPIC_AUTH_TOKEN',
-  'OPENAI_API_KEY',
-  'CODEX_API_KEY',
-  'CLAUDE_API_KEY',
+/**
+ * Environment variables copied into the host process.
+ * Everything else, including API keys and tokens, stays in the parent.
+ */
+export const FORWARDED_ENV = [
+  'PATH',
+  'PATHEXT',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'LANGUAGE',
+  'TERM',
+  'TZ',
+  'SYSTEMROOT',
+  'SystemRoot',
+  'WINDIR',
+  'COMSPEC',
+  'SHELL',
+  'USER',
+  'LOGNAME',
+  'USERNAME',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
+  'NODE_EXTRA_CA_CERTS',
+  'REQUESTS_CA_BUNDLE',
+  'CURL_CA_BUNDLE',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'NO_PROXY',
+  'http_proxy',
+  'https_proxy',
+  'no_proxy',
+  'ALL_PROXY',
+  'all_proxy',
 ] as const;
 
 export const IGNORED_FRONTMATTER = [

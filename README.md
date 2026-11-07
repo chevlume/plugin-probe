@@ -10,24 +10,22 @@ This version probes the Claude Code CLI (`claude`) and the Codex CLI (`codex`).
 
 ## Install
 
-Node.js 20 or newer. No API key.
+Node.js 20 or newer. No API key. plugin-probe is not published to npm. From any other directory, `npx plugin-probe` fails because the registry has no such package.
 
-Run it once, without installing:
-
-```bash
-npx plugin-probe probe --hosts claude,codex
-```
-
-Or install from a clone:
+Clone the repository and run this checkout:
 
 ```bash
 git clone https://github.com/chevlume/plugin-probe.git
 cd plugin-probe
 npm install
-npx plugin-probe probe --hosts claude,codex
+npx --yes . probe --hosts claude,codex
 ```
 
-`npm install` builds the TypeScript. The `plugin-probe` binary is `dist/cli.js`.
+`npm install` builds the TypeScript. `npx --yes .` runs the checkout you are in. In this directory, `npx plugin-probe` runs that same local program and does not download anything. The built file is `dist/cli.js`.
+
+```bash
+node dist/cli.js probe --hosts claude,codex
+```
 
 Host CLIs are optional. If `claude` or `codex` is not on `PATH`, that host is marked `skipped` and the command still exits 0.
 
@@ -39,7 +37,7 @@ Host CLIs are optional. If `claude` or `codex` is not on `PATH`, that host is ma
 4. Reads trace files and the host's stdout, stderr, and Claude debug log.
 5. Prints one row per host and capability.
 
-`ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are not forwarded. A normal login stored in your real home directory is not visible to the host. If the CLI exits before it loads the plugin, the rows are `skipped` and the note quotes the host's error. That is a finished probe, not a crash.
+The host process receives `PATH`, locale, temporary-directory, CA certificate, and proxy variables. API keys, tokens, and the rest of your environment are not forwarded. A normal login stored in your real home directory is not visible to the host, because `HOME` points at the temporary directory. If the CLI exits before it loads the plugin, the rows are `skipped` and the note quotes the host's error. That is a finished probe, not a crash.
 
 Probing executes the plugin's MCP command and hooks. Point it at a plugin you trust. The bundled canary only writes local trace files.
 
@@ -48,7 +46,7 @@ There is no telemetry. plugin-probe does not open network connections of its own
 ## Probe the bundled canary
 
 ```bash
-plugin-probe probe --hosts claude,codex
+npx --yes . probe --hosts claude,codex
 ```
 
 The canary is a small Claude-format plugin:
@@ -100,11 +98,11 @@ These public reports are why the canary checks those three behaviors. A row in y
 ## Probe your own plugin
 
 ```bash
-plugin-probe probe ./my-plugin
-plugin-probe probe --hosts codex --json ./my-plugin
+npx --yes . probe ./canary/plugin-probe-canary
+npx --yes . probe --hosts codex --json ./canary/plugin-probe-canary
 ```
 
-The directory should contain at least one of `.claude-plugin/plugin.json`, `.mcp.json`, `hooks/hooks.json`, or `skills/*/SKILL.md`.
+Use any plugin directory in place of `./canary/plugin-probe-canary`. The directory should contain at least one of `.claude-plugin/plugin.json`, `.mcp.json`, `hooks/hooks.json`, or `skills/*/SKILL.md`.
 
 Before the table, plugin-probe prints warnings when:
 
@@ -171,11 +169,15 @@ A successful document looks like this, abridged to one capability. The values ar
 
 ## Commands
 
-```text
-plugin-probe probe [options] [plugin-path]
-plugin-probe --help
-plugin-probe --version
+From this checkout:
+
+```bash
+npx --yes . --help
+npx --yes . --version
+npx --yes . probe --hosts claude,codex
 ```
+
+`plugin-probe` is the same program once the built binary is on your `PATH`.
 
 | option | meaning |
 | --- | --- |

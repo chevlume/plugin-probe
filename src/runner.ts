@@ -101,17 +101,23 @@ export function runProcess(request: RunRequest): Promise<RunResult> {
 }
 
 function killTree(child: ChildProcess): void {
+  signalGroup(child, 'SIGTERM');
+  const followUp = setTimeout(() => signalGroup(child, 'SIGKILL'), 500);
+  followUp.unref();
+}
+
+function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
   if (child.pid === undefined) return;
   if (process.platform !== 'win32') {
     try {
-      process.kill(-child.pid, 'SIGTERM');
+      process.kill(-child.pid, signal);
       return;
     } catch {
       // The process group may already be gone.
     }
   }
   try {
-    child.kill('SIGTERM');
+    child.kill(signal);
   } catch {
     // Already exited.
   }
