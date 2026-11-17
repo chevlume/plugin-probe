@@ -5,6 +5,7 @@ export interface CliOptions {
   help: boolean;
   version: boolean;
   json: boolean;
+  strict: boolean;
   command: 'probe' | null;
   hosts: string[];
   timeoutMs: number;
@@ -16,6 +17,7 @@ export function parseArgs(argv: string[]): CliOptions {
     help: false,
     version: false,
     json: false,
+    strict: false,
     command: null,
     hosts: [...DEFAULT_HOSTS],
     timeoutMs: DEFAULT_TIMEOUT_MS,
@@ -36,6 +38,10 @@ export function parseArgs(argv: string[]): CliOptions {
     }
     if (arg === '--json') {
       options.json = true;
+      continue;
+    }
+    if (arg === '--strict') {
+      options.strict = true;
       continue;
     }
     if (arg === '--hosts') {

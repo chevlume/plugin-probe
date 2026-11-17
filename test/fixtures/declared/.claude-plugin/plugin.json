@@ -1,0 +1,5 @@
+{
+  "name": "declared-plugin",
+  "version": "0.0.0",
+  "description": "Fixture that declares an MCP placeholder, an async hook, and a skill."
+}

@@ -24,7 +24,9 @@ test('help and version', () => {
   assert.equal(help.status, 0);
   assert.match(help.stdout, /plugin-probe probe/);
   assert.match(help.stdout, /--json/);
+  assert.match(help.stdout, /--strict/);
   assert.match(help.stdout, /--hosts/);
+  assert.match(help.stdout, /Exit codes:/);
   assert.match(help.stdout, /npx --yes \. probe/);
   assert.doesNotMatch(help.stdout, /npx plugin-probe/);
 

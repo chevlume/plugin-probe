@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "declared-plugin": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-trace.mjs", "--plugin-root", "${CLAUDE_PLUGIN_ROOT}"]
+    }
+  }
+}

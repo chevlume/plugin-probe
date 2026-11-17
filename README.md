@@ -27,7 +27,7 @@ npx --yes . probe --hosts claude,codex
 node dist/cli.js probe --hosts claude,codex
 ```
 
-Host CLIs are optional. If `claude` or `codex` is not on `PATH`, that host is marked `skipped` and the command still exits 0.
+Host CLIs are optional. If `claude` or `codex` is not on `PATH`, that host is marked `skipped` and the command still exits 0. Pass `--strict` when a skipped or failed row should fail the process.
 
 ## What a run does
 
@@ -58,7 +58,7 @@ The canary is a small Claude-format plugin:
 On a machine without those CLIs the table looks like this:
 
 ```text
-plugin-probe 0.1.0
+plugin-probe 0.2.0
 plugin: plugin-probe-canary (canary)
 path: /path/to/plugin-probe/canary/plugin-probe-canary
 
@@ -125,7 +125,7 @@ A successful document looks like this, abridged to one capability. The values ar
   "ok": true,
   "schemaVersion": 1,
   "tool": "plugin-probe",
-  "toolVersion": "0.1.0",
+  "toolVersion": "0.2.0",
   "generatedAt": "2026-11-07T00:00:00.000Z",
   "plugin": {
     "source": "canary",
@@ -182,10 +182,37 @@ npx --yes . probe --hosts claude,codex
 | option | meaning |
 | --- | --- |
 | `--hosts claude,codex` | Which CLIs to try. Default is both. Unknown ids are an error. |
-| `--json` | Machine-readable report on stdout. |
+| `--json` | Machine-readable report on stdout. The document is the same with or without `--strict`. |
+| `--strict` | Exit 3 unless every capability status is `yes`. |
 | `--timeout 20000` | Per-command timeout in milliseconds (1000–300000). Default 20000. |
 
-Exit 0 when the probe finishes, including when every host is skipped. Exit 2 for a bad command line or a plugin path that is not a plugin. Exit 1 for an unexpected failure.
+## CI
+
+Without `--strict`, a finished probe exits 0 even when a row is `no`, `ignored`, or `skipped`. In a job that should fail unless every check passed:
+
+```bash
+npx --yes . probe --hosts claude,codex --strict
+```
+
+`--json` still prints the same report on stdout. When `--strict` fails, one line on stderr names the counts, for example `plugin-probe: --strict: 1 no, 2 skipped.`
+
+| exit code | when |
+| --- | --- |
+| 0 | The probe finished. With `--strict`, every capability status is `yes`. |
+| 1 | Unexpected failure, including Node.js older than 20. |
+| 2 | Bad command line, or a plugin path that is not a plugin. |
+| 3 | `--strict`, and at least one capability status is not `yes`. |
+
+Capability `status` values the probe reports:
+
+| status | meaning | `--strict` |
+| --- | --- | --- |
+| `yes` | The host did the thing. | pass |
+| `no` | The host ran and the check failed. | failure |
+| `ignored` | The host said it was skipping the feature. | failure |
+| `skipped` | The CLI is missing, the process exited before it could load the plugin, or this plugin does not declare that feature. | failure |
+
+Any other capability status also fails `--strict`. `agentcompat` is separate (`yes`, `no`, `partial`, `ignored`, `?`) and is not what `--strict` reads. A row with `status` `no` and `agentcompat` `partial` is a failure. A host's own `status` is `probed` or `skipped`; a skipped host's capabilities are `skipped`, so `--strict` fails the run.
 
 ## Requirements
 
@@ -201,7 +228,7 @@ npm test
 npm run typecheck
 ```
 
-Tests use a mocked host runner. They do not need Claude, Codex, or network access. CI runs install, typecheck, and test on Node 20 and Node 22.
+Tests use a mocked host runner for classification, and the built CLI for exit codes. They do not need Claude, Codex, or network access. CI runs install, typecheck, and test on Node 20 and Node 22. A separate job runs `scripts/e2e-strict.sh`, which checks a real skipped probe and does not invent host output.
 
 ## License
 
